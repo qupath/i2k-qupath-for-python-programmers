@@ -30,14 +30,6 @@ print(f"Current image name: {gateway.entry_point.getCurrentImageName()}")
 ```
 
 
-```{python}
-import matplotlib.pyplot as plt
-
-plt.imshow(qupath_gateway.create_snapshot())
-plt.axis(False)
-plt.show()
-```
-
 
 ```{python}
 cores = gateway.entry_point.getTMACoreList()
