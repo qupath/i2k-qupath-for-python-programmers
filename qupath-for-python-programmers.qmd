@@ -1,0 +1,480 @@
+---
+title: QuPath for Python Programmers 🐍
+author: Alan O'Callaghan, Léo Leplat, Peter Bankhead, Fiona Inglis
+format:
+  html:
+    code-fold: true
+jupyter: python3
+---
+
+
+## Introduction/motivation
+
+
+## Interacting with QuPath
+
+```{python}
+from qubalab.qupath import qupath_gateway
+
+token = None
+port = 25333
+gateway = qupath_gateway.create_gateway(auth_token=token, port=port)
+
+gateway
+```
+
+
+```{python}
+print(f"Extension version: {gateway.entry_point.getExtensionVersion()}")
+print(f"Current image name: {gateway.entry_point.getCurrentImageName()}")
+```
+
+
+```{python}
+import matplotlib.pyplot as plt
+
+plt.imshow(qupath_gateway.create_snapshot())
+plt.axis(False)
+plt.show()
+```
+
+
+```{python}
+cores = gateway.entry_point.getTMACoreList()
+tumor_cores = [core for core in cores if core.getClassification() == "Tumor"]
+[, core.get core.getChildObjects() for core in tumor_cores]
+```
+
+
+## Images
+
+```{python}
+cache_folder = ""
+
+# Define a utility function to find or download an image
+
+from pathlib import Path
+import urllib.request
+
+if cache_folder != "":
+    Path(cache_folder).mkdir(parents=True, exist_ok=True)
+
+def get_image(image_name, image_url):
+    if cache_folder == "":
+        filename = None
+    else:
+        filename = Path(cache_folder) / image_name
+    
+    if filename is None or not(filename.exists()):
+        print(f"Downloading {image_name}...")
+        path, _ = urllib.request.urlretrieve(image_url, filename=filename)
+        print(f'{image_name} saved to {path}')
+    else:
+        path = filename
+        print(f'{image_name} found in {path}')
+
+    return path
+```
+
+```{python}
+# Download or get image
+cmu_path = get_image("CMU-1.svs", "https://openslide.cs.cmu.edu/download/openslide-testdata/Aperio/CMU-1.svs")
+
+from qubalab.images.openslide_server import OpenSlideServer
+
+
+# Create the ImageServer from the image path. This will read the image metadata but not the pixel values yet.
+# This function has optional parameters you can find in the documentation
+openslide_server = OpenSlideServer(cmu_path)
+```
+
+
+```{python}
+# Download or get image
+luca_path = get_image("LuCa-7color_[13860,52919]_1x1component_data.tif", "https://downloads.openmicroscopy.org/images/Vectra-QPTIFF/perkinelmer/PKI_fields/LuCa-7color_%5b13860,52919%5d_1x1component_data.tif")
+
+
+from qubalab.images.aicsimageio_server import AICSImageIoServer
+
+
+# Create the ImageServer from the image path. This will read the image metadata but not the pixel values yet.
+# This function has optional parameters you can find in the documentation
+aicsimageio_server = AICSImageIoServer(luca_path)
+```
+
+```{python}
+from qubalab.images.icc_profile_server import IccProfileServer
+
+# Create the IccProfileServer from the existing OpenslideServer. The two servers will have the same metadata, but pixel values might differ a bit
+icc_profile_server = IccProfileServer(openslide_server)
+```
+
+```{python}
+server = openslide_server
+```
+
+
+```{python}
+# Access image metadata
+
+metadata = server.metadata
+
+print(f'Image path: {metadata.path}')
+print(f'Image name: {metadata.name}')
+print()
+
+print('Levels:')
+for level, shape in enumerate(metadata.shapes):
+    print(f'Shape of level {level}: {shape}')
+print()
+
+print('Pixel calibration:')
+print(f'Pixel length on x-axis: {metadata.pixel_calibration.length_x}')
+print(f'Pixel length on y-axis: {metadata.pixel_calibration.length_y}')
+print()
+
+print(f'Pixel type: {metadata.dtype}')
+print()
+
+print(f'Downsamples: {metadata.downsamples}')
+print()
+
+print('Channels:')
+for channel in metadata.channels:
+    print(channel)
+```
+
+
+```{python}
+# Read and show lowest resolution image with read_region
+
+highest_downsample = server.metadata.downsamples[-1]
+lowest_resolution = server.read_region(highest_downsample)
+
+print(f'Image shape: {lowest_resolution.shape}')
+
+# This calls a utility function from qubalab to plot the image
+# If the image is RGB, the entire image is plotted
+# Otherwise, only the first channel is plotted
+from qubalab.display.plot import plotImage
+import matplotlib.pyplot as plt
+_, ax = plt.subplots()
+plotImage(ax, lowest_resolution)
+```
+
+```{python}
+# Read and show tile of full resolution image with read_region
+
+# Read a 2000x1000 pixels tile whose top left pixel is located at x=13000 and y=15000 on the full resolution image
+# You'll have to change these values if you want to open a smaller image
+downsample = 1
+x = 13000
+y = 15000
+width = 2000
+height = 1000
+tile = server.read_region(downsample, x=x, y=y, width=width, height=height)
+
+print(f'Tile shape: {tile.shape}')
+
+_, ax = plt.subplots()
+plotImage(ax, tile)
+```
+
+
+```{python}
+# Read and show lowest resolution image with level_to_dask
+
+last_level = server.metadata.n_resolutions - 1
+lowest_resolution = server.level_to_dask(last_level)
+
+# Pixel values are not read yet, but you can get the shape of the image
+print(f'Image shape: {lowest_resolution.shape}')
+
+# Compute array. This will read the pixel values
+lowest_resolution = lowest_resolution.compute()
+
+_, ax = plt.subplots()
+plotImage(ax, lowest_resolution)
+```
+
+```{python}
+# Read and show tile of full resolution image with level_to_dask
+
+first_level = 0
+highest_resolution = server.level_to_dask(first_level)
+
+print(f'Full resolution image shape: {highest_resolution.shape}')
+
+# Only read a 2000x1000 pixels tile whose top left pixel is located at x=13000 and y=15000 on the full resolution image
+x = 13000
+y = 15000
+width = 2000
+height = 1000
+tile = highest_resolution[:, y:y+height, x:x+width]
+
+print(f'Tile shape: {tile.shape}')
+
+# Compute array. This will only read the pixel values of the tile, not the entire image
+tile = tile.compute()
+
+_, ax = plt.subplots()
+plotImage(ax, tile)
+```
+
+
+### to_dask (don't use)
+
+```{python}
+# Read and show a tile of the image at an arbitray downsample
+
+downsample = 1.5
+image = server.to_dask(downsample)
+
+# Pixel values are not read yet, but you can get the shape of the image
+print(f'Image shape at downsample {downsample}: {image.shape}')
+
+# Only read a 2000x1000 pixels tile whose top left pixel is located at x=13000 and y=15000 on the downsampled image
+x = 13000
+y = 15000
+width = 2000
+height = 1000
+tile = image[:, y:y+height, x:x+width]
+
+print(f'Tile shape: {tile.shape}')
+
+# Compute array. This will only read the pixel values of the tile, not the entire image
+# This can take some time as explained above
+tile = tile.compute()
+
+_, ax = plt.subplots()
+plotImage(ax, tile)
+```
+
+## Objects
+
+
+```{python}
+from qubalab.objects.object_type import ObjectType
+
+object_type = ObjectType.ANNOTATION    # could be DETECTION, TILE, CELL, TMA_CORE
+```
+
+```{python}
+annotations = qupath_gateway.get_objects(object_type = object_type)
+
+for annotation in annotations:
+    print(annotation)
+```
+
+
+```{python}
+annotation = annotations[0]
+
+# Change the QuPath annotation
+annotation.setName("Hello from Python")
+
+# Refresh the QuPath interface. You should see the changes in QuPath
+qupath_gateway.refresh_qupath()
+```
+
+
+```{python}
+annotations = qupath_gateway.get_objects(object_type = object_type, converter='geojson')
+
+print(type(annotations[0]))
+```
+
+```{python}
+from shapely.geometry import shape
+
+shape(annotations[0].geometry)
+```
+
+```{python}
+import random
+
+for annotation in annotations:
+    if not annotation.classification:
+        annotation.color = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+
+qupath_gateway.delete_objects(object_type = object_type)
+qupath_gateway.add_objects(annotations)
+```
+
+```{python}
+from qubalab.images.qupath_server import QuPathServer
+from qubalab.images.labeled_server import LabeledImageServer
+
+# Create a QuPathServer that represents the image currently opened in QuPath
+qupath_server = QuPathServer(gateway)
+
+# Set a downsample. The labeled image will be 20 times smaller than the image currently opened in QuPath
+downsample = 20
+
+# Create the LabeledImageServer. This doesn't create labeled image yet
+labeled_server = LabeledImageServer(qupath_server.metadata, annotations, downsample=downsample)
+
+# Request the pixel values of the entire labeled image. Pixel values will be created as they are requested 
+label_image = labeled_server.read_region()
+
+# label_image is an image of shape (c, y, x), not easily plottable
+# We use a utility function from qubalab to plot the image
+from qubalab.display.plot import plotImage
+import matplotlib.pyplot as plt
+_, ax = plt.subplots()
+plotImage(ax, label_image)
+```
+
+
+```{python}
+# Create another LabeledImageServer, which will represent a stack of masks here
+mask_server = LabeledImageServer(qupath_server.metadata, annotations, downsample=downsample, multichannel=True)
+
+# Compute and return the masks
+masks = mask_server.read_region()
+
+# masks contains (n+1) channels, where n is the number of annotations
+# The i channel corresponds to the mask representing the i annotation
+# Let's plot the first mask corresponding to the first annotation
+_, ax = plt.subplots()
+plotImage(ax, masks, channel=1)
+```
+
+
+```{python}
+import numpy as np
+import matplotlib.pyplot as plt
+from skimage.filters import gaussian, threshold_otsu, threshold_triangle
+from skimage.color import rgb2gray
+from qubalab.objects.image_feature import ImageFeature
+
+
+# Set a downsample. The labeled image will be 20 times smaller than the image currently opened in QuPath
+downsample = 20
+
+# Set different threshold methods to apply to the image
+threshold_methods = {
+    'Otsu' : threshold_otsu,
+    'Triangle' : threshold_triangle
+}
+
+# Read image opened in QuPath
+image = qupath_server.read_region(downsample=downsample)
+
+# Convert the image to greyscale
+if qupath_server.metadata.is_rgb:
+    # If the image is RGB, we convert it to grayscale
+    # read_region() returns an image with the (c, y, x) shape.
+    # To use rgb2gray, we need to move the channel axis so that
+    # the shape becomes (y, x, c)
+    image = np.moveaxis(image, 0, -1)
+    image = rgb2gray(image)
+else:
+    # Else, we only consider the first channel of the image
+    image = image[0, ...]
+
+# Apply a gaussian filter
+image = gaussian(image, 2.0)
+
+# Iterate over threshold methods
+for i, (name, method) in enumerate(threshold_methods.items()):
+    # Apply threshold to image
+    threshold = method(image)
+
+    # Create mask from threshold
+    mask = image < threshold
+
+    # Create annotations from mask
+    annotations = ImageFeature.create_from_label_image(
+        mask,   
+        scale=downsample,   # mask is 20 times smaller than the QuPath image, so we scale
+                            # the annotations to fit the QuPath image
+        classification_names=name,  # set a single classification to the detected annotations
+    )
+
+    # Add annotations to QuPath
+    qupath_gateway.add_objects(annotations)
+
+    # Plot mask
+    plt.subplot(1, len(threshold_methods), i+1)
+    plt.imshow(mask)
+    plt.title(f'{name} (threshold={threshold:.2f})')
+    plt.axis(False)
+plt.show()
+```
+
+
+```{python}
+qupath_gateway.delete_objects()
+```
+
+
+```{python}
+from qubalab.display.plot import plotImageFeatures
+
+# Get QuPath annotations and detections
+annotations = qupath_gateway.get_objects(object_type = ObjectType.ANNOTATION, converter='geojson')
+detections = qupath_gateway.get_objects(object_type = ObjectType.DETECTION, converter='geojson')
+
+if len(detections) == 0:
+    print("No detections found. Please run cell detection from QuPath before running this cell.")
+
+# Set a random color for each detection
+for detection in detections:
+    detection.color = [random.randint(0, 255) for _ in range(3)]
+
+# Plot every annotations and their detections
+fig = plt.figure(figsize=(10, 8))
+for i, annotation in enumerate(annotations):
+    ax = fig.add_subplot(len(annotations), 1, i+1)
+
+    # Invert y axis. This is needed because in QuPath, the y-axis is going down
+    ax.invert_yaxis()
+
+    # Set title of graph from annotation name. You won't see it if the annotation doesn't have a name
+    ax.set_title(annotation.name)
+
+    # Plot annotation
+    plotImageFeatures(ax, [annotation], region=annotation.geometry, fill_opacity=0.1)
+
+    # Plot detections that are located below the annotation
+    plotImageFeatures(ax, detections, region=annotation.geometry, fill_opacity=0.25)
+```
+
+
+```{python}
+from shapely.geometry import shape
+
+# An offset in pixels to also see the image around the annotations
+offset = 100
+
+# Plot every annotations, their detections, and the image below it
+fig = plt.figure(figsize=(10, 8))
+for i, annotation in enumerate(annotations):
+    ax = fig.add_subplot(len(annotations), 1, i+1)
+
+    # Set title of graph from annotation name. You won't see it if the annotation doesn't have a name
+    ax.set_title(annotation.name)
+
+    # Compute bounds of the image. We add a small offset to see the image around the annotation
+    bounds = shape(annotation.geometry).bounds
+    min_x = max(0, bounds[0] - offset)
+    min_y = max(0, bounds[1] - offset)
+    max_x = min(qupath_server.metadata.width, bounds[2] + offset)
+    max_y = min(qupath_server.metadata.height, bounds[3] + offset)
+
+    # Get pixel values of image
+    image = qupath_server.read_region(x=min_x, y=min_y, width=max_x-min_x, height=max_y-min_y)
+
+    # Plot annotation
+    plotImageFeatures(ax, [annotation], region=annotation.geometry, fill_opacity=0.1)
+
+    # Plot detections that are located below the annotation
+    plotImageFeatures(ax, detections, region=annotation.geometry, fill_opacity=0.25)
+
+    # Plot image
+    plotImage(ax, image, offset=[min_x, min_y, max_x, max_y])
+```
+
+
+TODO: segment TMA cores using scikit-image and import back to qupath
