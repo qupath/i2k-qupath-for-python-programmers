@@ -1,2 +1,6 @@
 .venv/
 env/
+images
+*.html
+*_files
+*ipynb
