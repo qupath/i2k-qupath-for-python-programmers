@@ -426,6 +426,7 @@ plt.show()
 # qupath_gateway.delete_objects()
 ```
 
+---
 
 ## Displaying objects
 
@@ -469,6 +470,7 @@ The plotting code will show the annotations and cells - randomly recoloring the 
 #     plotImageFeatures(ax, detections, region=annotation.geometry, fill_opacity=0.25)
 ```
 
+---
 
 ```{python}
 # from shapely.geometry import shape
@@ -503,3 +505,19 @@ The plotting code will show the annotations and cells - randomly recoloring the 
 #     # Plot image
 #     plotImage(ax, image, offset=[min_x, min_y, max_x, max_y])
 ```
+
+
+---
+
+## Other workflow ideas
+
+Object classifiers using scikit-learn
+
+Object clustering using graph clustering
+
+Assessing classifier feature importance using UMAP
+
+
+---
+
+## Summary
