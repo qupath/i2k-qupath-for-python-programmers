@@ -4,3 +4,4 @@ images
 *.html
 *_files
 *ipynb
+env

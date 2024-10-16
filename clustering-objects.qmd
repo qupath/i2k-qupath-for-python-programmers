@@ -1,0 +1,147 @@
+---
+title: QuPath for Python Programmers 🐍
+subtitle: Graph clustering detections
+author: Alan O'Callaghan, Léo Leplat, Peter Bankhead, Fiona Inglis, Laura Nicolás Sáenz
+format: revealjs
+echo: true
+fontsize: "32px"
+jupyter: python3
+---
+
+## Creating a gateway
+
+First create a gateway as before:
+
+```{python}
+from qubalab.qupath import qupath_gateway
+
+gateway = qupath_gateway.create_gateway(auth_token=None, port=25333)
+```
+
+---
+
+## Show state
+
+Here, we're using a fluorescent image with cells detected using **InstanSeg**.
+
+This is only a 5-channel image, but this type of approach may be very useful
+for highly multiplexed images.
+
+QuPath snapshot:
+
+```{python}
+#| echo: false
+import matplotlib.pyplot as plt
+
+plt.imshow(qupath_gateway.create_snapshot())
+plt.axis(False)
+plt.show()
+```
+
+---
+
+## Detections
+
+We can get a list of all detections in the current image,
+and all of the associated measurements.
+
+```{python}
+detections = gateway.getDetectionObjects()
+names = detections[0].getMeasurementList().getNames()
+
+# filter measurements for simplicity - you could also add measurements here!
+# we're just using mean intensity measurements per channel
+names = [x for x in names if x.startswith("Cell") and x.endswith("Mean")]
+```
+
+---
+
+## Measurement collection
+
+We can make a pandas DataFrame of the detection measurements.
+
+You could also use this to assess feature importance, perform feature
+engineering...
+
+```{python}
+import pandas as pd
+df = pd.DataFrame(columns = names)
+for det in detections:
+    df = df._append(
+        {name: det.getMeasurements().get(name) for name in names},
+        ignore_index=True)
+
+# standardise the columns to avoid scale and shift effects
+normalized_df = (df - df.mean()) / df.std()
+```
+
+---
+
+## Running UMAP
+
+
+
+```{python}
+import umap
+# run a dimensionality reduction algorithm on the measurements
+embedding = umap.UMAP().fit_transform(normalized_df)
+
+# assign back to measurement list
+for i in range(embedding.shape[0]):
+    detections[i].getMeasurementList().put("UMAP1", float(embedding[i][0]))
+    detections[i].getMeasurementList().put("UMAP2", float(embedding[i][1]))
+```
+
+We could then create interactive plots in QuPath using these measurements.
+
+---
+
+## Preparing to cluster cells
+
+
+```{python}
+from sklearn.neighbors import kneighbors_graph
+import igraph
+
+# find KNN graph
+A = kneighbors_graph(normalized_df, 50)
+
+# convert matrix to adjacency matrix
+g = igraph.Graph.Adjacency((A > 0))
+```
+
+For large datasets you would use an approximate method, and a suitable K value.
+
+
+---
+
+## Running clustering
+
+
+```{python}
+import leidenalg
+# partition the KNN graph
+partition = leidenalg.find_partition(g, leidenalg.ModularityVertexPartition)
+
+# assign the partitions as classes to the original QuPath objects
+for i in range(embedding.shape[0]):
+    detections[i].setClassification(f"Cluster {partition.membership[i]}")
+```
+
+---
+
+## Clustered cells in QuPath
+
+If we refresh QuPath and show its state, we can see that our clustering is...
+somewhat successful?
+
+Validating the results is another (much more difficult) story that would
+require careful annotation and assessment of cluster stability.
+
+```{python}
+#| echo: false
+qupath_gateway.refresh_qupath()
+plt.imshow(qupath_gateway.create_snapshot())
+plt.axis(False)
+plt.show()
+```
