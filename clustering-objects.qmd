@@ -14,8 +14,10 @@ First create a gateway as before:
 
 ```{python}
 from qubalab.qupath import qupath_gateway
+from qubalab.images.qupath_server import QuPathServer
 
 gateway = qupath_gateway.create_gateway(auth_token=None, port=25333)
+qupath_server = QuPathServer(gateway) # read pixels from qupath via gateway
 ```
 
 ---
@@ -46,8 +48,6 @@ plt.show()
 from instanseg import InstanSeg
 instanseg = InstanSeg("fluorescence_nuclei_and_cells", image_reader= "tiffslide", verbosity=1)
 
-from qubalab.images.qupath_server import QuPathServer
-qupath_server = QuPathServer(gateway)
 x = 14108
 y = 4259
 width = 1893
@@ -75,7 +75,8 @@ show_images(labeled_output)
 
 ```{python}
 from instanseg.utils.utils import labels_to_features
-instanseg_objects = labels_to_features(labeled_output.squeeze().numpy())
+# channel 1 is cells, 0 is nuclei
+instanseg_objects = labels_to_features(labeled_output[:,1,:].numpy())
 
 import numpy as np
 def correct_coords(obj):
@@ -87,8 +88,16 @@ instanseg_objects = [correct_coords(obj) for obj in instanseg_objects]
 qupath_gateway.add_objects(instanseg_objects)
 ```
 
+## Making measurements
+
+This is horrendous code
+
 ```{python}
-gateway.jvm.qupath.ext.instanseg.core.DetectionMeasurer.builder().downsample(1.0).build().makeMeasurements(gateway.getCurrentImageData(), gateway.getDetectionObjects())
+builder = gateway.jvm.qupath.ext.instanseg.core.DetectionMeasurer.builder()
+measurer = builder.downsample(1.0).build()
+measurer.makeMeasurements(
+    gateway.getCurrentImageData(),
+    gateway.getDetectionObjects())
 ```
 
 ---
