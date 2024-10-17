@@ -4,7 +4,7 @@ subtitle: Graph clustering detections
 author: Alan O'Callaghan, Léo Leplat, Peter Bankhead, Fiona Inglis, Laura Nicolás Sáenz
 format: revealjs
 echo: true
-fontsize: "32px"
+fontsize: "30px"
 jupyter: python3
 ---
 
@@ -20,9 +20,9 @@ gateway = qupath_gateway.create_gateway(auth_token=None, port=25333)
 
 ---
 
-## Show state
+## Starting state
 
-Here, we're using a fluorescent image with cells detected using **InstanSeg**.
+Here, we're using a [CC0 fluorescence image](https://ftp.ebi.ac.uk/biostudies/fire/S-BIAD/463/S-BIAD463/Files/my_submission/Validation_raw/DCIS/Patient_test_2.ome.tiff) with cells detected using **InstanSeg**.
 
 This is only a 5-channel image, but this type of approach may be very useful
 for highly multiplexed images.
@@ -32,6 +32,75 @@ QuPath snapshot:
 ```{python}
 #| echo: false
 import matplotlib.pyplot as plt
+
+plt.imshow(qupath_gateway.create_snapshot())
+plt.axis(False)
+plt.show()
+```
+
+---
+
+## InstanSeg
+
+```{python}
+from instanseg import InstanSeg
+instanseg = InstanSeg("fluorescence_nuclei_and_cells", image_reader= "tiffslide", verbosity=1)
+
+from qubalab.images.qupath_server import QuPathServer
+qupath_server = QuPathServer(gateway)
+x = 14108
+y = 4259
+width = 1893
+height = 1024
+downsample = 1
+tile = qupath_server.read_region(downsample, x=x, y=y, width=width, height=height)
+
+from qubalab.display.plot import plotImage
+_, ax = plt.subplots()
+plotImage(ax, tile)
+```
+
+
+## Running InstanSeg
+
+```{python}
+labeled_output = instanseg.eval_medium_image(image = tile, return_image_tensor=False)
+
+from instanseg.utils.utils import show_images
+show_images(labeled_output)
+```
+
+
+## Moving from InstanSeg to QuPath
+
+```{python}
+from instanseg.utils.utils import labels_to_features
+instanseg_objects = labels_to_features(labeled_output.squeeze().numpy())
+
+import numpy as np
+def correct_coords(obj):
+    obj["geometry"]["coordinates"] = [[tuple(np.add(coord, (x, y))) for coord in coord_set] for coord_set in obj["geometry"]["coordinates"]]
+    obj["properties"]["object_type"] = "detection"
+    return obj
+
+instanseg_objects = [correct_coords(obj) for obj in instanseg_objects]
+qupath_gateway.add_objects(instanseg_objects)
+```
+
+```{python}
+gateway.jvm.qupath.ext.instanseg.core.DetectionMeasurer.builder().downsample(1.0).build().makeMeasurements(gateway.getCurrentImageData(), gateway.getDetectionObjects())
+```
+
+---
+
+## Result
+
+QuPath snapshot:
+
+```{python}
+#| echo: false
+import matplotlib.pyplot as plt
+qupath_gateway.refresh_qupath()
 
 plt.imshow(qupath_gateway.create_snapshot())
 plt.axis(False)
@@ -51,7 +120,7 @@ names = detections[0].getMeasurementList().getNames()
 
 # filter measurements for simplicity - you could also add measurements here!
 # we're just using mean intensity measurements per channel
-names = [x for x in names if x.startswith("Cell") and x.endswith("Mean")]
+names = [x for x in names if x.endswith("Mean")]
 ```
 
 ---
@@ -65,6 +134,7 @@ engineering...
 
 ```{python}
 import pandas as pd
+
 df = pd.DataFrame(columns = names)
 for det in detections:
     df = df._append(
@@ -75,14 +145,15 @@ for det in detections:
 normalized_df = (df - df.mean()) / df.std()
 ```
 
+
 ---
 
 ## Running UMAP
 
 
-
 ```{python}
 import umap
+
 # run a dimensionality reduction algorithm on the measurements
 embedding = umap.UMAP().fit_transform(normalized_df)
 
@@ -120,7 +191,8 @@ For large datasets you would use an approximate method, and a suitable K value.
 
 ```{python}
 import leidenalg
-# partition the KNN graph
+
+# partition the KNN graph based on graph modularity
 partition = leidenalg.find_partition(g, leidenalg.ModularityVertexPartition)
 
 # assign the partitions as classes to the original QuPath objects
@@ -132,7 +204,7 @@ for i in range(embedding.shape[0]):
 
 ## Clustered cells in QuPath
 
-If we refresh QuPath and show its state, we can see that our clustering is...
+If we refresh QuPath and show its state, we can see that our clustering looks...
 somewhat successful?
 
 Validating the results is another (much more difficult) story that would
