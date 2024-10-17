@@ -2,6 +2,18 @@
 
 These are the notebook and qmd files for the QuPath for python programmers.
 
+I will try to make a jupyter notebook slide deck...
+
+## Building
+
+1. Install [quarto](https://quarto.org/)
+1. Open QuPath
+2. Start a py4j gateway with default params
+3. Open this project (coming soon...)
+4. Open this image (also coming soon...)
+5. Run `quarto render qupath-for-python-programmers.qmd`
+6. Run `quarto render clustering-objects.qmd`
+
 ## Outline
 
 The content we hope to cover along with tentative presenters and time estimates.
