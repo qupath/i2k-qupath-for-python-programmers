@@ -3,5 +3,5 @@ env/
 images
 *.html
 *_files
-*ipynb
 env
+.ipynb_checkpoints
