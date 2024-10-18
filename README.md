@@ -17,5 +17,5 @@ These are the notebooks and associated files for the i2k 2024
 7. Open `HE_Hamamatsu.tiff` in QuPath
 8. Start a jupyter session using the virtual environment from earlier
 9. Run the `qupath-for-python-programmers.ipynb` notebook
-10. Open `patient_test_2.ome.tiff` in QuPath
+10. Open `patient_test_2.ome.tiff` in QuPath and select the annotation
 11. Run the `clustering-objects.ipynb` notebook
