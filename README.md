@@ -9,7 +9,7 @@ These are the notebooks and associated files for the i2k 2024
 2. Unzip the project in the i2k-qupath-for-python-programmers directory
 3. Create a python virtual environment (bash):
    1. `python -m venv .venv`
-   2. `. ./venv/bin/activate`
+   2. `. ./.venv/bin/activate`
    3. `pip install instanseg-torch git+https://github.com/qupath/qubalab.git jupyter ipython leidenalg igraph umap-learn`
 4. Open QuPath v0.6.0 rc3
 5. Start a py4j gateway with default parameters
