@@ -5,8 +5,8 @@ These are the notebooks and associated files for the i2k 2024
 
 ## Running the notebooks
 
-1. Download the latest QuPath v0.6.9 release candidate from the [github releases page](https://github.com/qupath/qupath/releases).
-2. Download the [QuPath project](https://github.com/qupath/i2k-qupath-for-python-programmers/releases/download/untagged-caef4b4b6c28c541bcd9/i2k-qupath-python-project.zip)
+1. Download the latest QuPath v0.6.0 release candidate from the [github releases page](https://github.com/qupath/qupath/releases).
+2. Download the [QuPath project](https://github.com/qupath/i2k-qupath-for-python-programmers/releases/download/untagged-4b3138048386c601ccdf/i2k-qupath-python-project.zip)
    for this workshop.
 3. Unzip the project in the i2k-qupath-for-python-programmers directory
 4. Create a python virtual environment (bash):
