@@ -1,7 +1,11 @@
-# QuPath for programmers Python
+# QuPath for Python programmers 🐍
 
 These are the notebooks and associated files for the i2k 2024
-**QuPath for python programmers** workshop.
+**QuPath for Python programmers** workshop.
+
+This is a brief introduction to [QuBaLab](https://github.com/qupath/qubalab)
+and the [QuPath Py4J extension](https://github.com/qupath/qupath-extension-py4j),
+a new way to quickly link Python and QuPath.
 
 ## Running the notebooks
 
