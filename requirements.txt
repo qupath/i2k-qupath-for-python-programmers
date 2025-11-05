@@ -162,7 +162,7 @@ pyzmq==26.2.0
 qubalab @ git+https://github.com/qupath/qubalab.git@7aa1621fcda41e74e6e814859de9fed850a95f3a
 rasterio==1.3.11
 referencing==0.35.1
-requests==2.32.3
+requests==2.32.4
 resource-backed-dask-array==0.1.0
 rfc3339-validator==0.1.4
 rfc3986-validator==0.1.1
