@@ -70,7 +70,7 @@ itkwasm==1.0b179
 itkwasm-downsample==1.4.2
 itkwasm-downsample-wasi==1.4.2
 jedi==0.19.1
-Jinja2==3.1.4
+Jinja2==3.1.6
 jmespath==1.0.1
 joblib==1.4.2
 json5==0.9.25
